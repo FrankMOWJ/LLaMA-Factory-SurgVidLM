@@ -128,6 +128,8 @@ class SharegptDatasetConverter(DatasetConverter):
         even_tags = (self.dataset_attr.assistant_tag, self.dataset_attr.function_tag)
         accept_tags = (odd_tags, even_tags)
         messages = example[self.dataset_attr.messages]
+        # SurgVidLM
+        timecodes = example.get('timecodes', None)
         if (
             self.dataset_attr.system_tag
             and len(messages) != 0
@@ -206,6 +208,7 @@ class SharegptDatasetConverter(DatasetConverter):
             "_images": self._find_medias(example[self.dataset_attr.images]) if self.dataset_attr.images else None,
             "_videos": self._find_medias(example[self.dataset_attr.videos]) if self.dataset_attr.videos else None,
             "_audios": self._find_medias(example[self.dataset_attr.audios]) if self.dataset_attr.audios else None,
+            "_timecodes": timecodes # SurgVidLM
         }
         return output
 

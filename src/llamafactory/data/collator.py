@@ -94,6 +94,8 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
     def __call__(self, features: Sequence[Dict[str, Any]]) -> Dict[str, "torch.Tensor"]:
         batch_images, batch_videos, batch_audios = [], [], []
         batch_imglens, batch_vidlens, batch_audlens, batch_input_ids = [], [], [], []
+        # SurgVidLM
+        batch_timecodes = []
         for feature in features:
             images = feature.pop("images", None) or []
             videos = feature.pop("videos", None) or []
@@ -105,6 +107,9 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
             batch_vidlens.append(len(videos))
             batch_audlens.append(len(audios))
             batch_input_ids.append(feature["input_ids"])
+            # SurgVidLM
+            if "timecodes" in feature:
+                batch_timecodes.append(feature["timecodes"])
 
         fake_input_ids = []
         if (
@@ -160,6 +165,7 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
             batch_audlens,
             batch_input_ids,
             self.processor,
+            batch_timecodes # SurgVidLM
         )
         if "token_type_ids" in mm_inputs:
             token_type_ids = mm_inputs.pop("token_type_ids")

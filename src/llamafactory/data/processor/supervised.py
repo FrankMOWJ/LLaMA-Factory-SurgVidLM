@@ -111,7 +111,8 @@ class SupervisedDatasetProcessor(DatasetProcessor):
             model_inputs["images"].append(examples["_images"][i])
             model_inputs["videos"].append(examples["_videos"][i])
             model_inputs["audios"].append(examples["_audios"][i])
-
+            # SurgVidLM
+            model_inputs['timecodes'].append(examples['_timecodes'][i])
         return model_inputs
 
     def print_data_example(self, example: Dict[str, List[int]]) -> None:
