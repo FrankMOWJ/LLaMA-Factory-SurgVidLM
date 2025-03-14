@@ -18,7 +18,15 @@ from ..extras.packages import (
     is_pyav_available,
     is_transformers_version_greater_than,
 )
-import decord
+
+def is_decord_available() -> bool:
+    import importlib.util
+
+    return importlib.util.find_spec("decord") is not None
+
+if is_decord_available():
+    import decord
+
 
 if is_librosa_available():
     import librosa
@@ -1213,24 +1221,25 @@ class SurgVidLMPlugin(BasePlugin):
     ) -> Tuple[List[List["ImageObject"]], List[float]]:
         results, fps_per_video = [], []
         for video in videos:
-            container = av.open(video, "r")
-            video_stream = next(stream for stream in container.streams if stream.type == "video")
-            sample_indices = self._get_video_sample_indices(video_stream, **kwargs)
+            video_stream = decord.VideoReader(video)
+            sample_indices, sample_frames = self._get_video_sample_indices(video_stream, **kwargs)
             frames: List["ImageObject"] = []
-            container.seek(0)
-            for frame_idx, frame in enumerate(container.decode(video_stream)):
-                if frame_idx in sample_indices:
-                    frames.append(frame.to_image())
+            
+            frames = video_stream.get_batch(sample_indices).asnumpy() 
+            
+            pil_frames: List[Image.Image] = []
+            for frame in frames:
+                pil_frame = Image.fromarray(frame) 
+                pil_frames.append(pil_frame)
 
+            frames = pil_frames
             if len(frames) % 2 != 0:  # qwen2-vl requires even number of frames
                 frames.append(frames[-1])
 
             frames = self._regularize_images(frames, **kwargs)
             results.append(frames)
-            if video_stream.duration is None:
-                fps_per_video.append(2.0)
-            else:
-                fps_per_video.append(len(sample_indices) / float(video_stream.duration * video_stream.time_base))
+           
+            fps_per_video.append(len(sample_indices) / float(len(video_stream) // video_stream.get_avg_fps()))
 
         return results, fps_per_video
 
@@ -1255,7 +1264,7 @@ class SurgVidLMPlugin(BasePlugin):
         if len(videos) != 0:
             videos, fps_per_video = self._regularize_videos(
                 videos,
-                image_max_pixels=getattr(processor, "video_max_pixels", 256 * 256),
+                image_max_pixels=getattr(processor, "video_max_pixels", 224 * 224),
                 image_min_pixels=getattr(processor, "video_min_pixels", 16 * 16),
                 video_fps=getattr(processor, "video_fps", 2.0),
                 video_maxlen=getattr(processor, "video_maxlen", 128),
@@ -1390,7 +1399,8 @@ class SurgVidLMPlugin(BasePlugin):
         if len(images) != 0:
             images = self._regularize_images(
                 images,
-                image_resolution=getattr(processor, "image_resolution", 512 * 512),
+                image_max_pixels=getattr(processor, "image_max_pixels", 768 * 768),
+                image_min_pixels=getattr(processor, "image_min_pixels", 32 * 32),
             )
             input_dict["images"] = images
 
@@ -1398,9 +1408,10 @@ class SurgVidLMPlugin(BasePlugin):
             videos, clips = self._regularize_videos_for_2stages(
                 videos,
                 timecodes=timecodes,
-                image_resolution=getattr(processor, "video_resolution", 224 * 224),
+                image_max_pixels=getattr(processor, "video_max_pixels", 224 * 224),
+                image_min_pixels=getattr(processor, "video_min_pixels", 16 * 16),
                 video_fps=getattr(processor, "video_fps", 2.0),
-                video_maxlen=getattr(processor, "video_maxlen", 64),
+                video_maxlen=getattr(processor, "video_maxlen", 128),
             )
             input_dict["videos"] = videos
             input_dict["clips"] = clips

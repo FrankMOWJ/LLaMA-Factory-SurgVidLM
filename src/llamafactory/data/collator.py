@@ -172,6 +172,11 @@ class MultiModalDataCollatorForSeq2Seq(DataCollatorForSeq2Seq):
             for i, feature in enumerate(features):
                 feature["token_type_ids"] = token_type_ids[i]
 
+        # SurgVidLM: remove the timecodes paramenter
+        for i, feature in enumerate(features):
+            if "timecodes" in feature:
+                features[i].pop("timecodes")
+                
         features: Dict[str, "torch.Tensor"] = super().__call__(features)
 
         if self.model is not None and hasattr(self.model, "get_rope_index"):  # for qwen2vl mrope
